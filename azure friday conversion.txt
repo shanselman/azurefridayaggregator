@@ -17,3 +17,5 @@ n times (max eps / 30)
 
 
 https://channel9.msdn.com/api/entriesbyarea/aeee37b6-ab0a-4c9f-8779-a2570148507b?format=taco
+
+https://hanselstorage.blob.core.windows.net/output/azurefriday.json
