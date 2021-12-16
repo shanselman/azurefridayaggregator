@@ -28,7 +28,9 @@ namespace AFAF
             while (true)
             {
                 string epUrl = String.Format(urlMain, pageNumber);
+
                 string jsonString = await client.GetStringAsync(epUrl);
+
                 Console.WriteLine($"Fetching {epUrl}");
                 var jsonObject = JsonNode.Parse(jsonString);
                 totalCount = (int)jsonObject["totalCount"].AsValue(); //don't need to do this twice
