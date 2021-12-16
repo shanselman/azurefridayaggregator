@@ -66,31 +66,26 @@ namespace AFAF
                 pageNumber++;
             }
 
-
             List<Episode> epList = episodes.Values.ToList<Episode>();
-
-            //string dumpString = JsonSerializer.Serialize(epList, new JsonSerializerOptions() { WriteIndented = true });
             JsonSerializer.Serialize(outputStream, epList, new JsonSerializerOptions() { WriteIndented = true });
-            //File.WriteAllText(), dumpString);
         }
 
 
     }
 
+    public record Episode
+    {
+        public string title { get; init; }
 
-public record Episode
-{
-    public string title { get; init; }
-    private string _url;
-    public string url { get { return _url; } init { _url = "https://docs.microsoft.com" + value; } }
-    public string description { get; init; }
-    public string descriptionAsHtml { get { return Markdig.Markdown.ToHtml(description); } }
-    public string entryId { get; init; }
-    public DateTime uploadDate { get; init; }
-
-    //from details
-    public string youTubeUrl { get; set; }
-    public string thumbnailUrl { get; set; }
-}
+        private string _url;
+        public string url { get { return _url; } init { _url = "https://docs.microsoft.com" + value; } }
+        public string description { get; init; }
+        public string descriptionAsHtml { get { return Markdig.Markdown.ToHtml(description); } }
+        public string entryId { get; init; }
+        public DateTime uploadDate { get; init; }
+        //populated on second pass, via details calls
+        public string youTubeUrl { get; set; }
+        public string thumbnailUrl { get; set; }
+    }
 
 }
