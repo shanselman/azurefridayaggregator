@@ -88,7 +88,7 @@ namespace AFAF
                 pageNumber++;
             }
 
-            List<Episode> epList = episodes.Values.ToList<Episode>();
+            List<Episode> epList = episodes.Values.OrderByDescending(e => e.uploadDate).ToList<Episode>();
 
             if (format == Format.Json)
             {
@@ -110,6 +110,7 @@ namespace AFAF
                 new Uri("https://docs.microsoft.com/en-us/shows/azure-friday/"),
                 "FeedID",
                 DateTime.Now);
+
 
             var xqiTunes = new XmlQualifiedName("itunes", "http://www.w3.org/2000/xmlns/");
             feed.AttributeExtensions.Add(xqiTunes, iTunesNS);
@@ -135,7 +136,9 @@ namespace AFAF
 
             feed.ElementExtensions.Add(new SyndicationElementExtension("author", iTunesNS, scottName));
 
-            feed.ElementExtensions.Add(new SyndicationElementExtension("image", iTunesNS, "https://hanselstorage.blob.core.windows.net/output/AzureFridaySquareiTunes.png"));
+            feed.ElementExtensions.Add(new XElement(xiTunesNS + "image",
+                  new XAttribute("href", "https://hanselstorage.blob.core.windows.net/output/AzureFridaySquareiTunes.png")
+                        ).CreateReader());
 
             feed.ElementExtensions.Add(new SyndicationElementExtension("subtitle", iTunesNS, Subtitle));
 
@@ -147,13 +150,18 @@ namespace AFAF
             feed.ElementExtensions.Add(new SyndicationElementExtension("explicit", iTunesNS, "no"));
             feed.ElementExtensions.Add(new SyndicationElementExtension("summary", iTunesNS, Description));
 
+            feed.ElementExtensions.Add(new SyndicationElementExtension("type", iTunesNS, "episodic"));
+
             feed.ElementExtensions.Add(new XElement(xiTunesNS + "category",
                   new XAttribute("text", "Technology")
                         ).CreateReader());
 
+            feed.ElementExtensions.Add("pubDate", "", DateTime.UtcNow.ToString("r"));
+
             //loop starts here
             List<SyndicationItem> items = new List<SyndicationItem>();
 
+            var count = 1;
             foreach (var ep in epList)
             {
                 var textContent = new TextSyndicationContent(ep.descriptionAsHtml);
@@ -162,10 +170,14 @@ namespace AFAF
                     textContent,
                     new Uri(ep.url),
                     new Uri(ep.url).ToString(),
-                    DateTime.Now);
+                    ep.uploadDate);
 
                 item.ElementExtensions.Add(new SyndicationElementExtension("summary", iTunesNS, ep.descriptionAsPlainText));
                 item.ElementExtensions.Add(new SyndicationElementExtension("author", iTunesNS, "Scott Hanselman, Rob Caron"));
+
+                item.ElementExtensions.Add(new SyndicationElementExtension("episodeType", iTunesNS, "full"));
+
+                item.ElementExtensions.Add(new SyndicationElementExtension("order", iTunesNS, count++));
 
                 string videoFile = String.Empty;
                 if (!string.IsNullOrEmpty(ep.lowQualityVideoUrl)) videoFile = ep.lowQualityVideoUrl;
@@ -177,7 +189,9 @@ namespace AFAF
                     "video/mp4",
                     0);
 
-                item.PublishDate = ep.uploadDate;
+                item.ElementExtensions.Add(new XElement("pubDate", ep.uploadDate.ToString("r")).CreateReader());
+
+                //item.PublishDate = ep.uploadDate;
 
                 item.Links.Add(enclosureLink);
 
