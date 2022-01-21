@@ -177,7 +177,7 @@ namespace AFAF
 
                 item.ElementExtensions.Add(new SyndicationElementExtension("episodeType", iTunesNS, "full"));
 
-                item.ElementExtensions.Add(new SyndicationElementExtension("order", iTunesNS, count++));
+                //item.ElementExtensions.Add(new SyndicationElementExtension("order", iTunesNS, count++));
 
                 string videoFile = String.Empty;
                 if (!string.IsNullOrEmpty(ep.lowQualityVideoUrl)) videoFile = ep.lowQualityVideoUrl;
