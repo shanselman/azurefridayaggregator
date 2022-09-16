@@ -10,6 +10,8 @@ using System.Threading.Tasks;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using System.Xml.Linq;
+using System.Diagnostics;
+using Microsoft.Identity.Client;
 
 namespace AFAF
 {
@@ -101,22 +103,19 @@ namespace AFAF
 
                     string entryId = entry["id"].ToString();
                     string youTubeUrl = entry["youTubeUrl"].ToString();
-                    episodes[entryId].thumbnailUrl = littleThumbnail;
+                    episodes[entryId].thumbnailUrl = UrlFixUp(littleThumbnail).ToString();
                     episodes[entryId].youTubeUrl = youTubeUrl;
 
-                    episodes[entryId].audioUrl = audioUrl?.ToString();
-                    episodes[entryId].lowQualityVideoUrl = lowQualityVideoUrl?.ToString();
-                    episodes[entryId].mediumQualityVideoUrl = mediumQualityVideoUrl?.ToString();
-                    episodes[entryId].highQualityVideoUrl = highQualityVideoUrl?.ToString();
-
-                    var firstCaption = captions[0]?.AsObject();
+                    episodes[entryId].audioUrl = UrlFixUp(audioUrl?.ToString()).ToString();
+                    episodes[entryId].lowQualityVideoUrl = UrlFixUp(lowQualityVideoUrl?.ToString()).ToString();
+                    episodes[entryId].mediumQualityVideoUrl = UrlFixUp(mediumQualityVideoUrl?.ToString()).ToString();
+                    episodes[entryId].highQualityVideoUrl = UrlFixUp(highQualityVideoUrl?.ToString()).ToString();
 
                     var englishCaptionUrl = captions.FirstOrDefault(e => e["language"]?.ToString() == "en-us")?["url"]?.ToString();
                     var chineseCaptionUrl = captions.FirstOrDefault(e => e["language"]?.ToString() == "zh-cn")?["url"]?.ToString();
 
-
-                    episodes[entryId].captionsUrlEnUs = englishCaptionUrl;
-                    episodes[entryId].captionsUrlZhCn = chineseCaptionUrl;
+                    episodes[entryId].captionsUrlEnUs = UrlFixUp(englishCaptionUrl).ToString();
+                    episodes[entryId].captionsUrlZhCn = UrlFixUp(chineseCaptionUrl).ToString();
                 }
                 pageNumber++;
             }
@@ -127,6 +126,7 @@ namespace AFAF
 
         private static void SerializeToRss(Stream outputStream, List<Episode> epList, bool audioOnly = false)
         {
+            
             XNamespace xiTunesNS = iTunesNS;
 
             var feed = new SyndicationFeed(
@@ -250,10 +250,24 @@ namespace AFAF
 
         public static Uri AddPodTracLink(string url)
         {
-            Uri uri = new Uri(url);
+            Console.WriteLine(url);
+            if (String.IsNullOrEmpty(url))
+                return null;
+            Uri uri = new Uri(UrlFixUp(url));
             Uri retUrl = new Uri("https://dts.podtrac.com/redirect.mp3/" + uri.Host + uri.PathAndQuery + uri.Fragment);
             return retUrl;
         }
+
+        public static string UrlFixUp(string url)
+        {
+            if (String.IsNullOrEmpty(url))
+                return String.Empty;
+            if (Uri.IsWellFormedUriString(url, UriKind.Absolute))
+                return new Uri(url).ToString();
+            else
+                return new Uri("https://docs.microsoft.com/video/media" + url).ToString();
+        } 
+
     }
 
     public enum Format
