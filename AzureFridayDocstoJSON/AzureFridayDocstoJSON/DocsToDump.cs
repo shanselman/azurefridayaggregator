@@ -265,9 +265,14 @@ namespace AFAF
             if (Uri.IsWellFormedUriString(url, UriKind.Absolute))
                 return new Uri(url).ToString();
             else
-                return new Uri("https://docs.microsoft.com/video/media" + url).ToString();
+            {
+                url = url.Replace("//","/");
+                if (url.StartsWith("/video/media"))
+                    return new Uri("https://learn.microsoft.com" + url).ToString();
+                else
+                    return new Uri("https://learn.microsoft.com/video/media" + url).ToString();
+            }
         } 
-
     }
 
     public enum Format
