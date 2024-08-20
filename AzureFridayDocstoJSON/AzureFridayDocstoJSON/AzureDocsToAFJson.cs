@@ -1,24 +1,24 @@
 using AFAF;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
-using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Azure.Functions.Worker;
 
 namespace AzureFridayDocstoJSON
 {
     public class AzureDocsToAFJson
     {
-        [FunctionName("AzureDocsToPodcastRSS")]
+        [Function("AzureDocsToPodcastRSS")]
         public async Task RunJsonAsync(
             [TimerTrigger("5 10 * * *", RunOnStartup = false)] TimerInfo myTimer,
             ILogger log,
-            [Blob("output//azurefriday.json", FileAccess.ReadWrite)] BlockBlobClient blobJsonClient,
-            [Blob("output//azurefriday.rss", FileAccess.ReadWrite)] BlockBlobClient blobRssClient,
-            [Blob("output//azurefridayaudio.rss", FileAccess.ReadWrite)] BlockBlobClient blobRssAudioClient
+            [BlobInput("output//azurefriday.json")] BlockBlobClient blobJsonClient,
+            [BlobInput("output//azurefriday.rss")] BlockBlobClient blobRssClient,
+            [BlobInput("output//azurefridayaudio.rss")] BlockBlobClient blobRssAudioClient
             )
         {
             List<Episode> episodes = await DocsToDump.GetEpisodeList();
