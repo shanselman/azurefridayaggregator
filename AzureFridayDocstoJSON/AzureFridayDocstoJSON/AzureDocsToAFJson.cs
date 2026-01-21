@@ -14,7 +14,7 @@ namespace AzureFridayDocstoJSON
     {
         [Function("AzureDocsToPodcastRSS")]
         public async Task RunJsonAsync(
-            [TimerTrigger("5 10 * * *", RunOnStartup = false)] TimerInfo myTimer,
+            [TimerTrigger("5 10 * * *", RunOnStartup = true)] TimerInfo myTimer,
             ILogger log,
             [BlobInput("output//azurefriday.json")] BlockBlobClient blobJsonClient,
             [BlobInput("output//azurefriday.rss")] BlockBlobClient blobRssClient,
