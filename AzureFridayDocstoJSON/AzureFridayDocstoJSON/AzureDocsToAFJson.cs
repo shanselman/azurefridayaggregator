@@ -61,13 +61,15 @@ namespace AzureFridayDocstoJSON
             Stream dumpRss = new MemoryStream();
                 await AFAF.DocsToDump.DumpDoc(dumpRss, episodes, AFAF.Format.Rss);
             dumpRss.Position = 0;
-            await blobRssClient.UploadAsync(dumpRss, new BlobHttpHeaders { ContentType = "application/rss+xml" });
+            await blobRssClient.UploadAsync(dumpRss, new BlobHttpHeaders { ContentType = "application/rss+xml", CacheControl = "public, max-age=300, must-revalidate" });
+            _logger.LogInformation("RSS feed uploaded with Cache-Control header");
 
             _logger.LogInformation("Uploading RSS Audio...");
             Stream dumpRssAudio = new MemoryStream();
                 await AFAF.DocsToDump.DumpDoc(dumpRssAudio, episodes, AFAF.Format.RssAudio);
             dumpRssAudio.Position = 0;
-            await blobRssAudioClient.UploadAsync(dumpRssAudio, new BlobHttpHeaders { ContentType = "application/rss+xml" });
+            await blobRssAudioClient.UploadAsync(dumpRssAudio, new BlobHttpHeaders { ContentType = "application/rss+xml", CacheControl = "public, max-age=300, must-revalidate" });
+            _logger.LogInformation("RSS Audio feed uploaded with Cache-Control header");
             
             _logger.LogInformation("AzureDocsToPodcastRSS completed successfully!");
         }
