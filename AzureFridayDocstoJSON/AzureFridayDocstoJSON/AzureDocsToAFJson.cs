@@ -55,7 +55,8 @@ namespace AzureFridayDocstoJSON
             Stream dumpJson = new MemoryStream();
                 await AFAF.DocsToDump.DumpDoc(dumpJson, episodes, AFAF.Format.Json);
             dumpJson.Position = 0;
-            await blobJsonClient.UploadAsync(dumpJson, new BlobHttpHeaders { ContentType = "application/json" });
+            await blobJsonClient.UploadAsync(dumpJson, new BlobHttpHeaders { ContentType = "application/json", CacheControl = "public, max-age=300, must-revalidate" });
+            _logger.LogInformation("JSON file uploaded with Cache-Control header");
 
             _logger.LogInformation("Uploading RSS...");
             Stream dumpRss = new MemoryStream();
