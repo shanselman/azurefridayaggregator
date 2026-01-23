@@ -26,7 +26,7 @@ If you discover a security vulnerability in this project, please report it by em
 
 ### Step 2: Revoke Access Using the Old Key
 
-After regenerating the key in Azure, the old key (`HO6hc3Tv9C5XbNuN7sabR4ZoFYCHDfA9U8nduiZ7jKqCRlpcJ3SOLQ==`) will be immediately invalidated and cannot be used to access your Azure Functions.
+After regenerating the key in Azure, the old compromised key will be immediately invalidated and cannot be used to access your Azure Functions.
 
 ### Step 3: Verify the Key is Rotated
 

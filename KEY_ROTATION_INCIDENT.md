@@ -127,9 +127,9 @@ az functionapp identity assign --name AzureFridayDocstoJSON \
 The following files have been added to the repository to prevent future incidents:
 
 1. **SECURITY.md** - Comprehensive security policy with key rotation procedures
-2. **.github/secret_scanning.yml** - Secret scanning configuration
-3. **README.md** - Updated with security best practices section
-4. **KEY_ROTATION_INCIDENT.md** - This incident response document
+2. **README.md** - Updated with security best practices section
+3. **KEY_ROTATION_INCIDENT.md** - This incident response document
+4. **.gitignore** - Updated to exclude local.settings.json with secrets
 
 ## Recommended Follow-up Actions
 
