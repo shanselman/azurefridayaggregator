@@ -126,6 +126,25 @@ Feed metadata includes:
 | `Microsoft.Azure.Functions.Worker.*` | Azure Functions isolated worker model |
 | `Azure.Storage.Blobs` | Upload to Azure Blob Storage |
 
+## Security
+
+⚠️ **Important**: This project uses Azure Functions with API keys for authentication. 
+
+### Key Management Best Practices
+
+- **Never commit API keys or secrets** to the repository
+- **Use GitHub Secrets** for storing sensitive values needed in CI/CD
+- **Rotate keys regularly** (recommended every 90 days)
+- **Enable secret scanning** in repository settings
+- **Use Azure Key Vault** for production secrets when possible
+
+If you accidentally leak a key, **immediately**:
+1. Rotate the key in Azure Portal (Function App → Settings → Function Keys)
+2. Update any services using the old key
+3. Review the [SECURITY.md](SECURITY.md) file for detailed instructions
+
+See [SECURITY.md](SECURITY.md) for complete security guidelines and key rotation procedures.
+
 ## Notes
 
 - The Microsoft Docs API has a page size limit of 30 episodes

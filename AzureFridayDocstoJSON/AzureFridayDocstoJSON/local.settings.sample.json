@@ -1,7 +1,11 @@
 {
     "IsEncrypted": false,
     "Values": {
-        "AzureWebJobsStorage": "<replace with storage connect string>",
+        "AzureWebJobsStorage": "<replace with storage connection string>",
         "FUNCTIONS_WORKER_RUNTIME": "dotnet"
-    }
+    },
+    "// SECURITY WARNING": "NEVER commit local.settings.json with real secrets!",
+    "// NOTE 1": "Copy this file to local.settings.json and add your real connection strings",
+    "// NOTE 2": "local.settings.json is in .gitignore to prevent accidental commits",
+    "// NOTE 3": "For production, use Azure Key Vault or Managed Identity instead of connection strings"
 }
