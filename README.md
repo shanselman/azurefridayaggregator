@@ -84,13 +84,15 @@ This generates three local files:
 ### Azure Function (Local)
 
 1. Copy `local.settings.sample.json` to `local.settings.json`
-2. Add your Azure Storage connection string
+2. Add your Azure Storage connection string (see [LOCAL_SETTINGS.md](AzureFridayDocstoJSON/AzureFridayDocstoJSON/LOCAL_SETTINGS.md) for details)
 3. Run with Azure Functions Core Tools:
 
 ```bash
 cd AzureFridayDocstoJSON/AzureFridayDocstoJSON
 func start
 ```
+
+⚠️ **Security Note**: Never commit `local.settings.json` - it's in `.gitignore` to protect your secrets.
 
 ## Deployment
 
@@ -125,6 +127,25 @@ Feed metadata includes:
 | `System.ServiceModel.Syndication` | Generate RSS 2.0 feeds |
 | `Microsoft.Azure.Functions.Worker.*` | Azure Functions isolated worker model |
 | `Azure.Storage.Blobs` | Upload to Azure Blob Storage |
+
+## Security
+
+⚠️ **Important**: This project uses Azure Functions with API keys for authentication. 
+
+### Key Management Best Practices
+
+- **Never commit API keys or secrets** to the repository
+- **Use GitHub Secrets** for storing sensitive values needed in CI/CD
+- **Rotate keys regularly** (recommended every 90 days)
+- **Enable secret scanning** in repository settings
+- **Use Azure Key Vault** for production secrets when possible
+
+If you accidentally leak a key, **immediately**:
+1. Rotate the key in Azure Portal (Function App → Settings → Function Keys)
+2. Update any services using the old key
+3. Review the [SECURITY.md](SECURITY.md) file for detailed instructions
+
+See [SECURITY.md](SECURITY.md) for complete security guidelines and key rotation procedures.
 
 ## Notes
 
