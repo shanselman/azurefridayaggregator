@@ -84,13 +84,15 @@ This generates three local files:
 ### Azure Function (Local)
 
 1. Copy `local.settings.sample.json` to `local.settings.json`
-2. Add your Azure Storage connection string
+2. Add your Azure Storage connection string (see [LOCAL_SETTINGS.md](AzureFridayDocstoJSON/AzureFridayDocstoJSON/LOCAL_SETTINGS.md) for details)
 3. Run with Azure Functions Core Tools:
 
 ```bash
 cd AzureFridayDocstoJSON/AzureFridayDocstoJSON
 func start
 ```
+
+⚠️ **Security Note**: Never commit `local.settings.json` - it's in `.gitignore` to protect your secrets.
 
 ## Deployment
 

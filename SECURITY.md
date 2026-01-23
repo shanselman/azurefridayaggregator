@@ -113,15 +113,38 @@ If you need to detect organization-specific secrets:
 If a secret is accidentally committed to the repository:
 
 1. **Rotate the secret immediately** in Azure
-2. **Remove the secret from git history** using:
+2. **Remove the secret from git history** using one of these methods:
+
+   **Recommended: Use git-filter-repo** (modern replacement for git filter-branch)
    ```bash
-   git filter-branch --force --index-filter \
-     "git rm --cached --ignore-unmatch <file-with-secret>" \
-     --prune-empty --tag-name-filter cat -- --all
+   # Install git-filter-repo
+   pip install git-filter-repo
+   
+   # Remove file containing secret
+   git filter-repo --path <file-with-secret> --invert-paths
+   
+   # Or remove specific strings
+   git filter-repo --replace-text <(echo '<SECRET_VALUE>==>REDACTED')
    ```
-   Or use [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/)
-3. **Force push** to update remote repository
+
+   **Alternative: Use BFG Repo-Cleaner** (easier for simple cases)
+   ```bash
+   # Download from https://rtyley.github.io/bfg-repo-cleaner/
+   java -jar bfg.jar --delete-files <file-with-secret>
+   # Or replace strings
+   java -jar bfg.jar --replace-text replacements.txt
+   ```
+
+3. **Force push** to update remote repository (⚠️ coordinate with team first)
+   ```bash
+   git push --force --all
+   git push --force --tags
+   ```
+
 4. **Verify the secret is removed** from all branches and history
+   ```bash
+   git log --all --full-history --source -- <file-with-secret>
+   ```
 
 ## Additional Resources
 
