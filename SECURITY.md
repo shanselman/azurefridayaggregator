@@ -6,7 +6,10 @@ If you discover a security vulnerability in this project, please report it by em
 
 ## Leaked Azure Functions Key - Rotation Instructions
 
-**⚠️ IMMEDIATE ACTION REQUIRED**: If you have leaked an Azure Functions key (as referenced in the problem statement), follow these steps immediately:
+**⚠️ IMMEDIATE ACTION REQUIRED**: An Azure Functions key has been leaked and must be rotated immediately.
+
+**Leaked Key**: `<REDACTED - See original incident report>`  
+**Endpoint**: `https://azurefridaydocstojson.azurewebsites.net`
 
 ### Step 1: Rotate the Key in Azure Portal
 
@@ -31,7 +34,7 @@ Test that the old key no longer works:
 
 ```bash
 # This should now return 401 Unauthorized
-curl -s -H "x-functions-key: HO6hc3Tv9C5XbNuN7sabR4ZoFYCHDfA9U8nduiZ7jKqCRlpcJ3SOLQ==" \
+curl -s -H "x-functions-key: <OLD_COMPROMISED_KEY>" \
   "https://azurefridaydocstojson.azurewebsites.net/admin/host/status"
 ```
 
@@ -78,9 +81,36 @@ If this key was used in GitHub Actions workflows or other CI/CD pipelines:
 - **Never log secrets** in application logs or error messages
 - **Never send secrets** via email, Slack, or other unsecured channels
 
-## Secret Scanning Configuration
+## Enabling GitHub Secret Scanning
 
-This repository should have secret scanning enabled. If you accidentally commit a secret:
+To prevent future secret leaks, enable GitHub's secret scanning feature:
+
+### For Public Repositories (Free)
+
+1. GitHub automatically scans public repositories for secrets
+2. You'll receive alerts when secrets are detected
+3. Enable push protection: **Settings** → **Code security and analysis** → **Push protection**
+
+### For Private Repositories (Requires GitHub Advanced Security)
+
+1. Go to **Settings** → **Code security and analysis**
+2. Enable **Secret scanning**
+3. Enable **Push protection** to prevent commits containing secrets
+4. Optionally enable **Dependency review** and **Code scanning** with CodeQL
+
+### Custom Secret Patterns (Advanced)
+
+If you need to detect organization-specific secrets:
+
+1. Go to **Organization Settings** → **Code security and analysis** → **Secret scanning**
+2. Click **New custom pattern**
+3. Define your pattern using regex (for Azure Functions keys, GitHub already has built-in patterns)
+
+**Note**: GitHub natively detects Azure service credentials, including Function keys, so additional configuration is typically not needed.
+
+## If You Accidentally Commit a Secret
+
+If a secret is accidentally committed to the repository:
 
 1. **Rotate the secret immediately** in Azure
 2. **Remove the secret from git history** using:

@@ -6,12 +6,12 @@
 
 ## Incident Summary
 
-An Azure Functions key for the `AzureFridayDocstoJSON` function app was exposed publicly in a curl command:
+An Azure Functions key for the `AzureFridayDocstoJSON` function app was exposed publicly. The key value has been redacted from this document for security purposes.
 
-```bash
-curl -s -H "x-functions-key: HO6hc3Tv9C5XbNuN7sabR4ZoFYCHDfA9U8nduiZ7jKqCRlpcJ3SOLQ==" \
-  "https://azurefridaydocstojson.azurewebsites.net/admin/host/status"
-```
+**Key Details**:
+- **Leaked Key**: `<REDACTED>`
+- **Exposure Method**: Public curl command example
+- **Discovery Date**: 2026-01-23
 
 ## Impact Assessment
 
@@ -65,7 +65,7 @@ After rotation, test that the old key no longer works:
 
 ```bash
 # Should return 401 Unauthorized
-curl -v -H "x-functions-key: HO6hc3Tv9C5XbNuN7sabR4ZoFYCHDfA9U8nduiZ7jKqCRlpcJ3SOLQ==" \
+curl -v -H "x-functions-key: <OLD_COMPROMISED_KEY>" \
   "https://azurefridaydocstojson.azurewebsites.net/admin/host/status"
 ```
 
