@@ -1,0 +1,22 @@
+name: Trigger Azure Friday Feed Update
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  trigger-function:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Azure Function HTTP endpoint
+        run: |
+          response=$(curl -s -w "%{http_code}" -o /tmp/response.txt "${{ secrets.AZURE_FUNCTION_URL }}")
+          cat /tmp/response.txt
+          echo ""
+          echo "HTTP Status: $response"
+          if [ "$response" != "200" ]; then
+            echo "Function call failed with status $response"
+            exit 1
+          fi
