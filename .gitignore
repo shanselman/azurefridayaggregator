@@ -395,4 +395,7 @@ FodyWeavers.xsd
 ### VisualStudio Patch ###
 # Additional files built by Visual Studio
 
+# Azure Functions
+local.settings.json
+
 # End of https://www.toptal.com/developers/gitignore/api/visualstudio
