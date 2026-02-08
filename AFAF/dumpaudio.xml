@@ -6,7 +6,7 @@
     <description>Join Scott Hanselman every Friday as he engages one-on-one with the engineers who build the services that power Microsoft Azure as they demo capabilities, answer Scott's questions, and share their insights. Follow us at: friday.azure.com.</description>
     <language>en-us</language>
     <copyright>Copyright 2026</copyright>
-    <lastBuildDate>Sat, 07 Feb 2026 16:16:31 -0800</lastBuildDate>
+    <lastBuildDate>Sat, 07 Feb 2026 17:30:37 -0800</lastBuildDate>
     <generator>Custom Azure Functions</generator>
     <image>
       <url>https://hanselstorage.blob.core.windows.net/output/AzureFridaySquareiTunes.png</url>
@@ -26,7 +26,7 @@
     <itunes:summary>Join Scott Hanselman every Friday as he engages one-on-one with the engineers who build the services that power Microsoft Azure as they demo capabilities, answer Scott's questions, and share their insights. Follow us at: friday.azure.com.</itunes:summary>
     <itunes:type>episodic</itunes:type>
     <category text="Technology" xmlns="http://www.itunes.com/dtds/podcast-1.0.dtd"></category>
-    <pubDate>Sun, 08 Feb 2026 00:16:31 GMT</pubDate>
+    <pubDate>Sun, 08 Feb 2026 01:30:37 GMT</pubDate>
     <item>
       <guid isPermaLink="true">https://learn.microsoft.com/shows/azure-friday/orchestrate-your-agents-with-microsoft-agent-framework/</guid>
       <link>https://learn.microsoft.com/shows/azure-friday/orchestrate-your-agents-with-microsoft-agent-framework/</link>
