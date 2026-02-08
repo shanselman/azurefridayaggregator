@@ -10,8 +10,6 @@ using System.Threading.Tasks;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using System.Xml.Linq;
-using System.Diagnostics;
-using Microsoft.Identity.Client;
 
 namespace AFAF
 {
@@ -20,7 +18,6 @@ namespace AFAF
         private const string googlePlayNS = "http://www.google.com/schemas/play-podcasts/1.0";
         private const string iTunesNS = "http://www.itunes.com/dtds/podcast-1.0.dtd";
 
-        //TODO Make this config?
         private const string Description = "Join Scott Hanselman every Friday as he engages one-on-one with the engineers who build the services that power Microsoft Azure as they demo capabilities, answer Scott's questions, and share their insights. Follow us at: friday.azure.com.";
         private const string coauthorName1 = "Scott Hanselman";
         private const string coauthorEmail1 = "scottha@microsoft.com";
@@ -30,7 +27,7 @@ namespace AFAF
         const string urlMain = "/api/hierarchy/shows/azure-friday/episodes?page={0}&pageSize=30&orderBy=uploaddate%20desc";
         const string urlBatch = "/api/video/public/v1/entries/batch?ids={0}";
         private const string showName = "Azure Friday";
-        private const string azureDocsShowUrl = "https://docs.microsoft.com/en-us/shows/azure-friday/";
+        private const string azureDocsShowUrl = "https://learn.microsoft.com/en-us/shows/azure-friday/";
 
         public static async Task DumpDoc(Stream outputStream, List<Episode> epList, Format format)
         {
@@ -50,11 +47,9 @@ namespace AFAF
 
         public static async Task<List<Episode>> GetEpisodeList()
         {
-            HttpClient client = new HttpClient();
-            // Our "base" URL is Production
-            client.BaseAddress = new Uri("https://docs.microsoft.com");
+            using var client = new HttpClient();
+            client.BaseAddress = new Uri("https://learn.microsoft.com");
             int pageNumber = 0;
-            int totalCount = 0;
 
             Dictionary<string, Episode> episodes = new Dictionary<string, Episode>();
 
@@ -66,7 +61,6 @@ namespace AFAF
 
                 Console.WriteLine($"Fetching {epUrl}");
                 var jsonObject = JsonNode.Parse(jsonString);
-                totalCount = (int)jsonObject["totalCount"].AsValue(); //don't need to do this twice
 
                 JsonNode epNode = jsonObject["episodes"];
                 if (epNode?.AsArray() != null && epNode.AsArray().Count == 0) break;
@@ -132,7 +126,7 @@ namespace AFAF
             var feed = new SyndicationFeed(
                 (audioOnly == true) ? showName + " (Audio)" : showName,
                 Description,
-                new Uri("https://docs.microsoft.com/en-us/shows/azure-friday/"),
+                new Uri("https://learn.microsoft.com/en-us/shows/azure-friday/"),
                 "FeedID",
                 DateTime.Now);
 
@@ -237,7 +231,7 @@ namespace AFAF
 
             SyndicationLink link = new SyndicationLink(new Uri(azureDocsShowUrl), "alternate", showName, "text/html", 7000);
             feed.Links.Add(link);
-            SyndicationLink link2 = SyndicationLink.CreateSelfLink(new Uri("https://docs.microsoft.com/en-us/shows/azure-friday/"), "rss/application+xml");
+            SyndicationLink link2 = SyndicationLink.CreateSelfLink(new Uri("https://learn.microsoft.com/en-us/shows/azure-friday/"), "rss/application+xml");
             feed.Links.Add(link2);
 
             XmlWriter rssWriter = XmlWriter.Create(outputStream, new XmlWriterSettings() { Indent = true });
@@ -286,7 +280,7 @@ namespace AFAF
         public string title { get; init; }
 
         private string _url;
-        public string url { get { return _url; } init { _url = "https://docs.microsoft.com" + value; } }
+        public string url { get { return _url; } init { _url = "https://learn.microsoft.com" + value; } }
         public string description { get; init; }
 
         public string descriptionAsPlainText { get { return Markdig.Markdown.ToPlainText(description); } }
