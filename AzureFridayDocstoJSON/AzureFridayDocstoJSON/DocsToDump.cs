@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using System.Xml.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace AFAF
 {
@@ -28,6 +29,7 @@ namespace AFAF
         const string urlBatch = "/api/video/public/v1/entries/batch?ids={0}";
         private const string showName = "Azure Friday";
         private const string azureDocsShowUrl = "https://learn.microsoft.com/en-us/shows/azure-friday/";
+        private const int MinExpectedEpisodes = 100;
 
         public static async Task DumpDoc(Stream outputStream, List<Episode> epList, Format format)
         {
@@ -45,10 +47,11 @@ namespace AFAF
             }
         }
 
-        public static async Task<List<Episode>> GetEpisodeList()
+        public static async Task<List<Episode>> GetEpisodeList(ILogger? logger = null)
         {
             using var client = new HttpClient();
             client.BaseAddress = new Uri("https://learn.microsoft.com");
+            client.Timeout = TimeSpan.FromSeconds(30);
             int pageNumber = 0;
 
             Dictionary<string, Episode> episodes = new Dictionary<string, Episode>();
@@ -56,65 +59,88 @@ namespace AFAF
             while (true)
             {
                 string epUrl = String.Format(urlMain, pageNumber);
+                logger?.LogInformation("Fetching {url}", epUrl);
 
                 string jsonString = await client.GetStringAsync(epUrl);
-
-                Console.WriteLine($"Fetching {epUrl}");
                 var jsonObject = JsonNode.Parse(jsonString);
 
-                JsonNode epNode = jsonObject["episodes"];
-                if (epNode?.AsArray() != null && epNode.AsArray().Count == 0) break;
+                JsonNode? epNode = jsonObject?["episodes"];
+                if (epNode == null || epNode is not JsonArray epArray || epArray.Count == 0) break;
 
                 StringBuilder batchEps = new StringBuilder();
 
-                foreach (JsonObject item in epNode.AsArray())
+                foreach (JsonNode? node in epArray)
                 {
+                    if (node is not JsonObject item) continue;
                     var ep = JsonSerializer.Deserialize<Episode>(item);
+                    if (ep?.entryId == null) continue;
 
                     batchEps.Append(ep.entryId + ",");
-                    episodes.Add(ep.entryId, ep);
+                    if (!episodes.TryAdd(ep.entryId, ep))
+                    {
+                        logger?.LogWarning("Duplicate entryId {entryId} on page {page}, skipping", ep.entryId, pageNumber);
+                    }
                 }
 
                 string epDetailsUrl = String.Format(urlBatch, batchEps.ToString().TrimEnd(','));
+                logger?.LogInformation("Fetching details {url}", epDetailsUrl);
                 string jsonDetailsString = await client.GetStringAsync(epDetailsUrl);
-                Console.WriteLine($"Fetching {epDetailsUrl}");
 
                 var jsonDetailsObject = JsonNode.Parse(jsonDetailsString);
-                foreach (JsonObject item in jsonDetailsObject.AsArray())
+                if (jsonDetailsObject is not JsonArray detailsArray)
                 {
-                    var entry = item["entry"];
-                    var publicVideo = entry["publicVideo"];
-                    var thumbnailObj = publicVideo["thumbnailOtherSizes"];
-                    var audioUrl = publicVideo["audioUrl"];
-                    var lowQualityVideoUrl = publicVideo["lowQualityVideoUrl"];
-                    var mediumQualityVideoUrl = publicVideo["mediumQualityVideoUrl"];
-                    var highQualityVideoUrl = publicVideo["highQualityVideoUrl"];
+                    logger?.LogWarning("Batch details response was not an array on page {page}", pageNumber);
+                    pageNumber++;
+                    continue;
+                }
 
-                    var captions = publicVideo["captions"].AsArray();
+                foreach (JsonNode? detailNode in detailsArray)
+                {
+                    if (detailNode is not JsonObject item) continue;
+                    try
+                    {
+                        var entry = item["entry"];
+                        if (entry == null) continue;
 
+                        string? entryId = entry["id"]?.ToString();
+                        if (entryId == null || !episodes.ContainsKey(entryId)) continue;
 
-                    var littleThumbnail = thumbnailObj["w800Url"].ToString();
+                        var publicVideo = entry["publicVideo"];
+                        if (publicVideo == null) continue;
 
-                    string entryId = entry["id"].ToString();
-                    string youTubeUrl = entry["youTubeUrl"].ToString();
-                    episodes[entryId].thumbnailUrl = UrlFixUp(littleThumbnail).ToString();
-                    episodes[entryId].youTubeUrl = youTubeUrl;
+                        episodes[entryId].youTubeUrl = entry["youTubeUrl"]?.ToString() ?? "";
+                        episodes[entryId].thumbnailUrl = UrlFixUp(publicVideo["thumbnailOtherSizes"]?["w800Url"]?.ToString());
 
-                    episodes[entryId].audioUrl = UrlFixUp(audioUrl?.ToString()).ToString();
-                    episodes[entryId].lowQualityVideoUrl = UrlFixUp(lowQualityVideoUrl?.ToString()).ToString();
-                    episodes[entryId].mediumQualityVideoUrl = UrlFixUp(mediumQualityVideoUrl?.ToString()).ToString();
-                    episodes[entryId].highQualityVideoUrl = UrlFixUp(highQualityVideoUrl?.ToString()).ToString();
+                        episodes[entryId].audioUrl = UrlFixUp(publicVideo["audioUrl"]?.ToString());
+                        episodes[entryId].lowQualityVideoUrl = UrlFixUp(publicVideo["lowQualityVideoUrl"]?.ToString());
+                        episodes[entryId].mediumQualityVideoUrl = UrlFixUp(publicVideo["mediumQualityVideoUrl"]?.ToString());
+                        episodes[entryId].highQualityVideoUrl = UrlFixUp(publicVideo["highQualityVideoUrl"]?.ToString());
 
-                    var englishCaptionUrl = captions.FirstOrDefault(e => e["language"]?.ToString() == "en-us")?["url"]?.ToString();
-                    var chineseCaptionUrl = captions.FirstOrDefault(e => e["language"]?.ToString() == "zh-cn")?["url"]?.ToString();
-
-                    episodes[entryId].captionsUrlEnUs = UrlFixUp(englishCaptionUrl).ToString();
-                    episodes[entryId].captionsUrlZhCn = UrlFixUp(chineseCaptionUrl).ToString();
+                        var captions = publicVideo["captions"] as JsonArray;
+                        if (captions != null)
+                        {
+                            episodes[entryId].captionsUrlEnUs = UrlFixUp(captions.FirstOrDefault(e => e?["language"]?.ToString() == "en-us")?["url"]?.ToString());
+                            episodes[entryId].captionsUrlZhCn = UrlFixUp(captions.FirstOrDefault(e => e?["language"]?.ToString() == "zh-cn")?["url"]?.ToString());
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.LogWarning(ex, "Failed to parse details for an episode entry, skipping");
+                    }
                 }
                 pageNumber++;
             }
 
             List<Episode> epList = episodes.Values.OrderByDescending(e => e.uploadDate).ToList<Episode>();
+
+            if (epList.Count < MinExpectedEpisodes)
+            {
+                throw new InvalidOperationException(
+                    $"Only got {epList.Count} episodes (expected at least {MinExpectedEpisodes}). " +
+                    "API may be broken — refusing to overwrite production data.");
+            }
+
+            logger?.LogInformation("Fetched {count} episodes total", epList.Count);
             return epList;
         }
 
@@ -194,30 +220,39 @@ namespace AFAF
 
                 item.ElementExtensions.Add(new SyndicationElementExtension("episodeType", iTunesNS, "full"));
 
-                SyndicationLink enclosureLink = null;
+                SyndicationLink? enclosureLink = null;
                 if (audioOnly)
                 {
                     string audioFile = String.Empty;
                     if (!string.IsNullOrEmpty(ep.audioUrl)) audioFile = ep.audioUrl;
 
-                    enclosureLink = SyndicationLink.CreateMediaEnclosureLink(
-                        AddPodTracLink(audioFile),
-                        "audio/mp3",
-                        0);
+                    var podTracUri = AddPodTracLink(audioFile);
+                    if (podTracUri != null)
+                    {
+                        enclosureLink = SyndicationLink.CreateMediaEnclosureLink(
+                            podTracUri,
+                            "audio/mp3",
+                            0);
+                    }
                 }
-                else //audio feed
+                else //video feed
                 {
                     string videoFile = String.Empty;
                     if (!string.IsNullOrEmpty(ep.lowQualityVideoUrl)) videoFile = ep.lowQualityVideoUrl;
                     if (!string.IsNullOrEmpty(ep.mediumQualityVideoUrl)) videoFile = ep.mediumQualityVideoUrl;
                     if (!string.IsNullOrEmpty(ep.highQualityVideoUrl)) videoFile = ep.highQualityVideoUrl;
 
-                    enclosureLink = SyndicationLink.CreateMediaEnclosureLink(
-                        AddPodTracLink(videoFile),
-                        "video/mp4",
-                        0);
+                    var podTracUri = AddPodTracLink(videoFile);
+                    if (podTracUri != null)
+                    {
+                        enclosureLink = SyndicationLink.CreateMediaEnclosureLink(
+                            podTracUri,
+                            "video/mp4",
+                            0);
+                    }
                 }
-                item.Links.Add(enclosureLink);
+                if (enclosureLink != null)
+                    item.Links.Add(enclosureLink);
 
                 //manual pubDate because iTunes hates "z"
                 item.ElementExtensions.Add(new XElement("pubDate", ep.uploadDate.ToString("r")).CreateReader());
@@ -242,17 +277,19 @@ namespace AFAF
             rssWriter.Close();
         }
 
-        public static Uri AddPodTracLink(string url)
+        public static Uri? AddPodTracLink(string? url)
         {
-            Console.WriteLine(url);
             if (String.IsNullOrEmpty(url))
                 return null;
-            Uri uri = new Uri(UrlFixUp(url));
+            string fixedUrl = UrlFixUp(url);
+            if (String.IsNullOrEmpty(fixedUrl))
+                return null;
+            Uri uri = new Uri(fixedUrl);
             Uri retUrl = new Uri("https://dts.podtrac.com/redirect.mp3/" + uri.Host + uri.PathAndQuery + uri.Fragment);
             return retUrl;
         }
 
-        public static string UrlFixUp(string url)
+        public static string UrlFixUp(string? url)
         {
             if (String.IsNullOrEmpty(url))
                 return String.Empty;
@@ -277,26 +314,25 @@ namespace AFAF
 
     public record Episode
     {
-        public string title { get; init; }
+        public string title { get; init; } = "";
 
-        private string _url;
+        private string _url = "";
         public string url { get { return _url; } init { _url = "https://learn.microsoft.com" + value; } }
-        public string description { get; init; }
+        public string description { get; init; } = "";
 
         public string descriptionAsPlainText { get { return Markdig.Markdown.ToPlainText(description); } }
         public string descriptionAsHtml { get { return Markdig.Markdown.ToHtml(description); } }
-        public string entryId { get; init; }
+        public string entryId { get; init; } = "";
         public DateTime uploadDate { get; init; }
-        //populated on second pass, via details REST calls
-        public string youTubeUrl { get; set; }
-        public string thumbnailUrl { get; set; }
+        public string youTubeUrl { get; set; } = "";
+        public string thumbnailUrl { get; set; } = "";
 
-        public string audioUrl { get; set; }
-        public string lowQualityVideoUrl { get; set; }
-        public string mediumQualityVideoUrl { get; set; }
-        public string highQualityVideoUrl { get; set; }
-        public string captionsUrlEnUs { get; set; }
-        public string captionsUrlZhCn { get; set; }
+        public string audioUrl { get; set; } = "";
+        public string lowQualityVideoUrl { get; set; } = "";
+        public string mediumQualityVideoUrl { get; set; } = "";
+        public string highQualityVideoUrl { get; set; } = "";
+        public string captionsUrlEnUs { get; set; } = "";
+        public string captionsUrlZhCn { get; set; } = "";
     }
 
 }
