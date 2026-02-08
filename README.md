@@ -1,87 +1,119 @@
 # Azure Friday Aggregator
 
-An automated tool that aggregates Azure Friday show episodes from Microsoft Docs and generates podcast-compatible RSS feeds and JSON exports.
+The data pipeline behind [azurefriday.com](https://azurefriday.com). This Azure Function fetches all Azure Friday episode data from the Microsoft Learn API, generates podcast-compatible RSS feeds and a JSON export, and uploads them to Azure Blob Storage.
 
-## What It Does
+## How It Works
 
-This project fetches episode metadata from the Microsoft Docs API for the [Azure Friday](https://docs.microsoft.com/en-us/shows/azure-friday/) show hosted by Scott Hanselman. It then:
+```
+Microsoft Learn API                    Azure Function                      Blob Storage
+──────────────────                    ──────────────                      ────────────
+                                      Every 6 hours (+ HTTP trigger):
+/api/hierarchy/shows/                                                     hanselstorage/output/
+  azure-friday/episodes  ──────►  1. Paginate through all episodes  ──►  azurefriday.json
+  (30 per page)                   2. Batch-fetch video details           azurefriday.rss
+                                  3. Generate JSON + 2 RSS feeds         azurefridayaudio.rss
+/api/video/public/v1/             4. Upload to blob storage
+  entries/batch          ──────►     with Cache-Control headers
+  (thumbnails, media URLs,
+   captions, YouTube links)          Validation: refuses to upload
+                                     if < 100 episodes returned
+```
 
-1. **Fetches episode data** from the Microsoft Docs Hierarchy API (paginated, 30 episodes per page)
-2. **Enriches episodes** with video/audio URLs, thumbnails, captions, and YouTube links via the Docs Video API
-3. **Generates outputs**:
-   - `azurefriday.json` - JSON dump of all episodes
-   - `azurefriday.rss` - Video podcast RSS feed (iTunes/Google Play compatible)
-   - `azurefridayaudio.rss` - Audio-only podcast RSS feed
-
-The outputs are uploaded to Azure Blob Storage and available at:
-- https://hanselstorage.blob.core.windows.net/output/azurefriday.json
+The [azure-friday](https://github.com/shanselman/azure-friday) web app reads `azurefriday.json` from blob storage. Podcast clients (Apple Podcasts, etc.) read the RSS feeds directly.
 
 ## Project Structure
 
 ```
 azurefridayaggregator/
 ├── AFAF/                              # Console app for local testing
-│   ├── Program.cs                     # Entry point - dumps to local files
-│   └── AFAF.csproj                    # References the shared library
+│   ├── Program.cs                     # Dumps to local files (dump.json, dump.xml, dumpaudio.xml)
+│   └── AFAF.csproj
 │
 ├── AzureFridayDocstoJSON/
-│   └── AzureFridayDocstoJSON/         # Azure Function project
-│       ├── AzureDocsToAFJson.cs       # Timer-triggered function (runs daily at 10:05 AM UTC)
-│       ├── DocsToDump.cs              # Core logic - API calls & feed generation
-│       ├── Program.cs                 # Azure Functions worker host
-│       └── AzureFridayDocstoJSON.csproj
+│   └── AzureFridayDocstoJSON/         # Azure Function project (.NET 8, isolated worker v4)
+│       ├── AzureDocsToAFJson.cs       # Function triggers (timer + HTTP) and blob upload
+│       ├── DocsToDump.cs              # Core logic: API fetching, RSS generation, Episode model
+│       ├── Program.cs                 # Azure Functions host
+│       └── host.json
 │
-└── .github/workflows/
-    └── AzureFridayDocstoJSON.yml      # CI/CD - deploys to Azure Functions on push to master
+├── .github/workflows/
+│   └── AzureFridayDocstoJSON.yml      # CI/CD: builds and deploys on push to master
+│
+├── azure friday conversion.txt        # API documentation and notes
+└── broken stuff.txt                   # Known issues with legacy Channel 9 URLs
 ```
 
-## How It Works
+## Episode Data
 
-### Data Flow
+Each episode contains:
 
-```
-Microsoft Docs API ──► Fetch Episodes ──► Enrich with Media URLs ──► Generate Outputs
-      │                                                                     │
-      │  /api/hierarchy/shows/azure-friday/episodes                         ├─► JSON
-      │  /api/video/public/v1/entries/batch                                 ├─► RSS (Video)
-      └────────────────────────────────────────────────────────────────────►└─► RSS (Audio)
-```
+| Field | Source | Example |
+|-------|--------|---------|
+| `title` | Hierarchy API | "Orchestrate your Agents with Microsoft Agent Framework" |
+| `url` | Hierarchy API | `https://learn.microsoft.com/shows/azure-friday/...` |
+| `description` | Hierarchy API | Markdown text (also rendered as HTML and plain text via Markdig) |
+| `uploadDate` | Hierarchy API | `2026-02-03T17:42:48Z` |
+| `entryId` | Hierarchy API | `b64fc5c9-b75e-47a0-b21f-68db6d977dac` |
+| `thumbnailUrl` | Video Batch API | 800px wide JPG |
+| `youTubeUrl` | Video Batch API | YouTube watch link |
+| `audioUrl` | Video Batch API | MP4 audio file |
+| `lowQualityVideoUrl` | Video Batch API | 640x360 MP4 |
+| `mediumQualityVideoUrl` | Video Batch API | 1280x720 MP4 |
+| `highQualityVideoUrl` | Video Batch API | 1920x1080 MP4 |
+| `captionsUrlEnUs` | Video Batch API | VTT caption file (English) |
+| `captionsUrlZhCn` | Video Batch API | VTT caption file (Chinese) |
 
-### API Endpoints Used
+## API Endpoints Used
 
 | Endpoint | Purpose |
 |----------|---------|
-| `https://docs.microsoft.com/api/hierarchy/shows/azure-friday/episodes?page={n}&pageSize=30` | Get episode list (title, description, URL, entry ID) |
-| `https://docs.microsoft.com/api/video/public/v1/entries/batch?ids={ids}` | Batch fetch video details (thumbnail, audio/video URLs, captions) |
+| `https://learn.microsoft.com/api/hierarchy/shows/azure-friday/episodes?page={n}&pageSize=30&orderBy=uploaddate%20desc` | Get episode list (paginated, 30 per page) |
+| `https://learn.microsoft.com/api/video/public/v1/entries/batch?ids={id1},{id2},...` | Batch fetch video details (media URLs, thumbnails, captions) |
 
-### Episode Data Collected
+## Reliability Features
 
-- `title`, `description`, `url`, `uploadDate`
-- `thumbnailUrl` (800px wide)
-- `youTubeUrl`
-- `audioUrl`, `lowQualityVideoUrl`, `mediumQualityVideoUrl`, `highQualityVideoUrl`
-- `captionsUrlEnUs`, `captionsUrlZhCn`
+- **Minimum episode guard**: Refuses to upload if fewer than 100 episodes returned (protects against API outages overwriting good data with empty data)
+- **Per-episode error handling**: Bad entries in the video batch API are logged and skipped, not fatal
+- **Per-blob error handling**: Each upload (JSON, RSS, RSS Audio) is independent — if one fails, the others still upload. All failures are thrown as an AggregateException
+- **Null-safe JSON parsing**: Missing thumbnails, captions, or YouTube URLs produce empty strings, not crashes
+- **HTTP timeout**: 30-second timeout per API request
+- **Duplicate protection**: Duplicate `entryId` values are logged and skipped via `TryAdd`
+- **Structured logging**: All operations logged via `ILogger` for Application Insights visibility
+- **Cache-Control headers**: All uploaded blobs include `public, max-age=300, must-revalidate`
+
+## RSS Feed Features
+
+Compatible with:
+- **Apple Podcasts** (iTunes namespace: `itunes:author`, `itunes:image`, `itunes:category`, etc.)
+- **Google Podcasts** (Google Play namespace)
+- **Podtrac analytics** (media URLs wrapped with `dts.podtrac.com/redirect.mp3/`)
+
+Feed metadata:
+- Show: **Azure Friday** (video) / **Azure Friday (Audio)** (audio-only)
+- Authors: Scott Hanselman, Rob Caron
+- Category: Technology
+- Language: en-us
+- Type: episodic
 
 ## Running Locally
 
 ### Prerequisites
 
-- .NET 8.0 SDK
-- Azure Storage account (for Azure Function) or local files (for console app)
+- .NET 8.0 SDK (or later)
 
-### Console App (AFAF)
+### Console App (quick test, no Azure needed)
 
 ```bash
 cd AFAF
 dotnet run
 ```
 
-This generates three local files:
-- `dump.json`
-- `dump.xml` (video RSS)
-- `dumpaudio.xml` (audio RSS)
+Generates three local files:
+- `dump.json` (~1.8 MB, 502 episodes)
+- `dump.xml` (video RSS, ~1.1 MB)
+- `dumpaudio.xml` (audio RSS, ~1.1 MB)
 
-### Azure Function (Local)
+### Azure Function (local)
 
 1. Copy `local.settings.sample.json` to `local.settings.json`
 2. Add your Azure Storage connection string
@@ -92,42 +124,26 @@ cd AzureFridayDocstoJSON/AzureFridayDocstoJSON
 func start
 ```
 
+The timer trigger runs on startup. There's also an HTTP trigger at `/api/AzureDocsToPodcastRSSHttp` for manual invocation.
+
 ## Deployment
 
-The Azure Function deploys automatically via GitHub Actions when pushing to `master`. It:
+Automatically deployed via GitHub Actions on push to `master`:
 
 1. Builds the .NET 8 project
 2. Publishes to Azure Function App `AzureFridayDocstoJSON`
-3. Runs on a timer schedule: `5 10 * * *` (daily at 10:05 AM UTC)
+3. Runs on a timer: `0 0 */6 * * *` (every 6 hours)
 
 ### Required Secrets
 
-- `AzureFridayDocstoJSON_FFFF` - Azure Function publish profile
-
-## RSS Feed Features
-
-The generated RSS feeds are compatible with:
-- Apple Podcasts (iTunes)
-- Google Podcasts
-- Podtrac analytics (URLs wrapped with `dts.podtrac.com/redirect.mp3/`)
-
-Feed metadata includes:
-- Show: **Azure Friday**
-- Authors: Scott Hanselman, Rob Caron
-- Category: Technology
-- Language: en-us
+- `AzureFridayDocstoJSON_FFFF` — Azure Function publish profile
 
 ## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `Markdig` | Convert Markdown descriptions to HTML/plain text |
-| `System.ServiceModel.Syndication` | Generate RSS 2.0 feeds |
-| `Microsoft.Azure.Functions.Worker.*` | Azure Functions isolated worker model |
-| `Azure.Storage.Blobs` | Upload to Azure Blob Storage |
-
-## Notes
-
-- The Microsoft Docs API has a page size limit of 30 episodes
-- Old Channel 9 URLs redirect to the new Docs video player
-- Some legacy video embeds may be broken (see `broken stuff.txt`)
+| `Markdig` | Convert Markdown episode descriptions to HTML and plain text |
+| `System.ServiceModel.Syndication` | Generate RSS 2.0 feeds with iTunes/Google Play extensions |
+| `Microsoft.Azure.Functions.Worker.*` | Azure Functions isolated worker model (v4) |
+| `Azure.Storage.Blobs` | Upload generated files to Azure Blob Storage |
+| `Microsoft.ApplicationInsights.WorkerService` | Structured logging and monitoring |
