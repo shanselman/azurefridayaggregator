@@ -1,11 +1,14 @@
 {
   "dependencies": {
     "storage1": {
-      "type": "storage",
+      "resourceId": "/subscriptions/[parameters('subscriptionId')]/resourceGroups/[parameters('resourceGroupName')]/providers/Microsoft.Storage/storageAccounts/hanselstorage",
+      "type": "storage.azure",
       "connectionId": "AzureWebJobsStorage"
     },
     "appInsights1": {
-      "type": "appInsights",
+      "secretStore": "AzureAppSettings",
+      "resourceId": "/subscriptions/[parameters('subscriptionId')]/resourceGroups/[parameters('resourceGroupName')]/providers/microsoft.insights/components/AzureFridayDocstoJSON-flex",
+      "type": "appInsights.azure",
       "connectionId": "APPLICATIONINSIGHTS_CONNECTION_STRING"
     }
   }

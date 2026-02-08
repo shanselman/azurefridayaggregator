@@ -5,15 +5,15 @@ The data pipeline behind [azurefriday.com](https://azurefriday.com). This Azure 
 ## How It Works
 
 ```
-Microsoft Learn API                    Azure Function                      Blob Storage
-──────────────────                    ──────────────                      ────────────
+Microsoft Learn API                  Azure Function (Flex Consumption)    Blob Storage
+---------------------                ---------------------------------    ------------
                                       Every 6 hours (+ HTTP trigger):
 /api/hierarchy/shows/                                                     hanselstorage/output/
-  azure-friday/episodes  ──────►  1. Paginate through all episodes  ──►  azurefriday.json
-  (30 per page)                   2. Batch-fetch video details           azurefriday.rss
-                                  3. Generate JSON + 2 RSS feeds         azurefridayaudio.rss
+  azure-friday/episodes  ------>  1. Paginate through all episodes  --->  azurefriday.json
+  (30 per page)                   2. Batch-fetch video details            azurefriday.rss
+                                  3. Generate JSON + 2 RSS feeds          azurefridayaudio.rss
 /api/video/public/v1/             4. Upload to blob storage
-  entries/batch          ──────►     with Cache-Control headers
+  entries/batch          ------>     with Cache-Control headers
   (thumbnails, media URLs,
    captions, YouTube links)          Validation: refuses to upload
                                      if < 100 episodes returned
@@ -25,22 +25,19 @@ The [azure-friday](https://github.com/shanselman/azure-friday) web app reads `az
 
 ```
 azurefridayaggregator/
-├── AFAF/                              # Console app for local testing
-│   ├── Program.cs                     # Dumps to local files (dump.json, dump.xml, dumpaudio.xml)
-│   └── AFAF.csproj
-│
-├── AzureFridayDocstoJSON/
-│   └── AzureFridayDocstoJSON/         # Azure Function project (.NET 8, isolated worker v4)
-│       ├── AzureDocsToAFJson.cs       # Function triggers (timer + HTTP) and blob upload
-│       ├── DocsToDump.cs              # Core logic: API fetching, RSS generation, Episode model
-│       ├── Program.cs                 # Azure Functions host
-│       └── host.json
-│
-├── .github/workflows/
-│   └── AzureFridayDocstoJSON.yml      # CI/CD: builds and deploys on push to master
-│
-├── azure friday conversion.txt        # API documentation and notes
-└── broken stuff.txt                   # Known issues with legacy Channel 9 URLs
++-- AFAF/                              # Console app for local testing
+|   +-- Program.cs                     # Dumps to local files (dump.json, dump.xml, dumpaudio.xml)
+|   +-- AFAF.csproj
+|
++-- AzureFridayDocstoJSON/
+|   +-- AzureFridayDocstoJSON/         # Azure Function project (.NET 10, isolated worker v4)
+|       +-- AzureDocsToAFJson.cs       # Function triggers (timer + HTTP) and blob upload
+|       +-- DocsToDump.cs              # Core logic: API fetching, RSS generation, Episode model
+|       +-- Program.cs                 # Azure Functions host
+|       +-- host.json
+|
++-- .github/workflows/
+    +-- AzureFridayDocstoJSON.yml      # CI/CD: builds and deploys on push to master
 ```
 
 ## Episode Data
@@ -74,7 +71,7 @@ Each episode contains:
 
 - **Minimum episode guard**: Refuses to upload if fewer than 100 episodes returned (protects against API outages overwriting good data with empty data)
 - **Per-episode error handling**: Bad entries in the video batch API are logged and skipped, not fatal
-- **Per-blob error handling**: Each upload (JSON, RSS, RSS Audio) is independent — if one fails, the others still upload. All failures are thrown as an AggregateException
+- **Per-blob error handling**: Each upload (JSON, RSS, RSS Audio) is independent -- if one fails, the others still upload. All failures are thrown as an AggregateException
 - **Null-safe JSON parsing**: Missing thumbnails, captions, or YouTube URLs produce empty strings, not crashes
 - **HTTP timeout**: 30-second timeout per API request
 - **Duplicate protection**: Duplicate `entryId` values are logged and skipped via `TryAdd`
@@ -99,7 +96,7 @@ Feed metadata:
 
 ### Prerequisites
 
-- .NET 8.0 SDK (or later)
+- .NET 10.0 SDK (or later)
 
 ### Console App (quick test, no Azure needed)
 
@@ -128,15 +125,17 @@ The timer trigger runs on startup. There's also an HTTP trigger at `/api/AzureDo
 
 ## Deployment
 
+Hosted on **Azure Functions Flex Consumption** (`AzureFridayDocstoJSON-flex`) in West US 2.
+
 Automatically deployed via GitHub Actions on push to `master`:
 
-1. Builds the .NET 8 project
-2. Publishes to Azure Function App `AzureFridayDocstoJSON`
+1. Builds the .NET 10 project
+2. Deploys to Azure via `az functionapp deployment source config-zip` (service principal auth)
 3. Runs on a timer: `0 0 */6 * * *` (every 6 hours)
 
 ### Required Secrets
 
-- `AzureFridayDocstoJSON_FFFF` — Azure Function publish profile
+- `AZURE_CREDENTIALS` -- Service principal JSON for `azure/login` (Contributor on AzureFriday resource group)
 
 ## Dependencies
 
