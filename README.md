@@ -1,6 +1,6 @@
 # Azure Friday Aggregator
 
-The data pipeline behind [azurefriday.com](https://azurefriday.com). This Azure Function fetches all Azure Friday episode data from the Microsoft Learn API, generates podcast-compatible RSS feeds and a JSON export, and uploads them to Azure Blob Storage.
+The data pipeline behind [azurefriday.com](https://azurefriday.com). This Azure Function fetches all Azure Friday episode data from the Microsoft Learn API, generates podcast-compatible RSS feeds and a JSON export, and uploads them to Azure Blob Storage. 
 
 ## How It Works
 
