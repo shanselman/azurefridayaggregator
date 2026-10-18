@@ -146,3 +146,7 @@ Automatically deployed via GitHub Actions on push to `master`:
 | `Microsoft.Azure.Functions.Worker.*` | Azure Functions isolated worker model (v4) |
 | `Azure.Storage.Blobs` | Upload generated files to Azure Blob Storage |
 | `Microsoft.ApplicationInsights.WorkerService` | Structured logging and monitoring |
+
+## GitHub Actions schedule
+
+GitHub automatically disables scheduled workflows in public repositories after 60 days without repository activity. The `Trigger Azure Friday Feed Update` workflow is the six-hour heartbeat for refreshing the feeds; if GitHub disables it, re-enable it from the Actions tab or with `gh workflow enable scheduled-trigger.yml`. Check the workflow status periodically, since scheduled workflows alone may not count as repository activity for this policy.
